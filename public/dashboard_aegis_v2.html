@@ -1,0 +1,139 @@
+<!DOCTYPE html><html lang="ko"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aegis V2 – Live</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_2001@1.1/GmarketSans.woff" rel="stylesheet" type="text/css">
+<script src="https://unpkg.com/lucide@latest"></script>
+<style>
+:root { --font-gmarket:'GmarketSans',sans-serif; --bg:#020617; --card:#0f172a; --border:#334155; --text:#e2e8f0; --muted:#94a3b8; --blue:#38bdf8; --green:#34d399; --yellow:#fbbf24;}
+body{ background-color:var(--bg); color:var(--text); font-family:var(--font-gmarket);}
+.progress-bar-inner{ transition: width .5s ease-in-out;}
+.gm-bold{font-weight:700}.gm-med{font-weight:500}.gm-light{font-weight:300}
+.badge{display:inline-block;padding:.2rem .6rem;border-radius:9999px;font-size:.7rem}
+.badge-live{background:#16a34a;color:#fff}.badge-warn{background:#f59e0b;color:#111}
+</style></head>
+<body class="p-4 md:p-6 max-w-screen-xl mx-auto">
+<header class="mb-6 flex justify-between items-center">
+  <div><h1 class="text-2xl md:text-3xl gm-bold text-white">작전 지휘 센터 "Aegis V2"</h1>
+  <p class="text-sm gm-light" style="color:var(--muted);">실시간 AI 챔피언십 현황</p></div>
+  <div id="status" class="text-right"><span class="badge badge-warn">DISCONNECTED</span></div>
+</header>
+
+<main class="space-y-8">
+  <section>
+    <h2 class="text-xl gm-med text-white mb-4">AI Championship Arena</h2>
+    <div id="cards" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"></div>
+  </section>
+
+  <section class="bg-[var(--card)] border border-yellow-500/50 rounded-lg p-4">
+    <h2 class="text-lg gm-med text-yellow-400 mb-3">지휘 통제 (C&C)</h2>
+    <div id="log" class="h-48 overflow-y-auto mb-3 p-2 bg-black/30 rounded-md text-sm gm-light"></div>
+    <div class="flex gap-2">
+      <input id="prompt" class="flex-grow bg-gray-900/50 border border-gray-600 rounded-md px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 gm-light" placeholder="명령 또는 질의 입력...">
+      <button id="run" class="bg-blue-600 hover:bg-blue-700 text-white gm-med py-2 px-4 rounded-md">실행</button>
+    </div>
+  </section>
+
+  <section>
+    <h2 class="text-xl gm-med mb-2">지식 그래프</h2>
+    <pre id="graph" class="text-xs bg-black/30 border border-[var(--border)] p-3 rounded-md overflow-x-auto"></pre>
+  </section>
+</main>
+
+<script>
+const providers = ["Gemini","Claude","Grok","GPT-4o"];
+const icons = { default:"brain-circuit" };
+function cardTemplate(p){ return `
+  <div class="bg-[var(--card)] border border-[var(--border)] rounded-lg p-4 flex flex-col justify-between h-48">
+    <div>
+      <div class="flex justify-between items-center mb-2">
+        <h3 class="text-lg gm-bold text-white">${p}</h3>
+        <i data-lucide="brain-circuit" style="color:var(--blue);"></i>
+      </div>
+      <p id="act-${p}" class="text-sm gm-light mb-3" style="color:var(--muted);">대기 중…</p>
+    </div>
+    <div class="w-full bg-gray-700 rounded-full h-2.5"><div id="bar-${p}" class="bg-[var(--green)] h-2.5 rounded-full progress-bar-inner" style="width:0%"></div></div>
+  </div>`; }
+
+function setProgress(p, v){ document.getElementById('bar-'+p).style.width = v+'%'; }
+function setActivity(p, t){ document.getElementById('act-'+p).textContent = t; }
+function log(msg){ const el=document.getElementById('log'); const t=document.createElement('div'); t.textContent = new Date().toLocaleTimeString()+" | "+msg; el.appendChild(t); el.scrollTop=el.scrollHeight; }
+
+function renderCards(){
+  const c=document.getElementById('cards');
+  c.innerHTML = providers.map(cardTemplate).join('');
+  lucide.createIcons();
+}
+
+async function startRun(userPrompt){
+  document.getElementById('status').innerHTML = '<span class="badge badge-live">LIVE</span>';
+  renderCards();
+  
+  fetch('/api/synapse', { 
+    method:'POST', 
+    headers:{'Content-Type':'application/json'}, 
+    body: JSON.stringify({prompt:userPrompt||'Explain CRE market regime shifts'})
+  }).then(response => {
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    
+    function readStream() {
+      reader.read().then(({ done, value }) => {
+        if (done) {
+          log("스트림 종료");
+          return;
+        }
+        
+        const chunk = decoder.decode(value);
+        const lines = chunk.split('\n');
+        
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.substring(6));
+              
+              if(data.event_type==="SESSION_START"){ log("세션 시작"); }
+              if(data.event_type==="AGENT_FINISH"){
+                const name = (data.payload.provider||"").toLowerCase();
+                if(name.includes("openai")){ setProgress("GPT-4o", 100); setActivity("GPT-4o","완료"); }
+                if(name.includes("anthropic")){ setProgress("Claude", 100); setActivity("Claude","완료"); }
+                if(name.includes("gemini")){ setProgress("Gemini", 100); setActivity("Gemini","완료"); }
+                if(name.includes("xai")){ setProgress("Grok", 100); setActivity("Grok","완료"); }
+                log(`에이전트 완료: ${data.payload.provider}`);
+              }
+              if(data.event_type==="AGENT_ERROR"){
+                log(`에이전트 오류: ${data.payload.error}`);
+              }
+              if(data.event_type==="GRAPH_READY"){
+                document.getElementById('graph').textContent = JSON.stringify(data.payload, null, 2);
+                log("지식 그래프 생성됨");
+              }
+              if(data.event_type==="SESSION_END"){
+                log("세션 종료");
+              }
+            } catch(e) { 
+              console.error(e); 
+            }
+          }
+        }
+        
+        readStream();
+      });
+    }
+    
+    log("스트림 연결됨");
+    readStream();
+  }).catch(e => {
+    log("스트림 오류: " + e.message);
+    document.getElementById('status').innerHTML='<span class="badge badge-warn">ERROR</span>';
+  });
+}
+
+document.getElementById('run').addEventListener('click', ()=>{
+  const p = document.getElementById('prompt').value || 'Explain CRE market regime shifts';
+  startRun(p);
+});
+
+renderCards();
+</script>
+</body></html>
