@@ -12,9 +12,9 @@ export async function GET(req:NextRequest){
   const enc=new TextEncoder();
   const stream=new ReadableStream({
     async start(controller){
-      const send=(o:any)=>controller.enqueue(enc.encode(`data: ${JSON.stringify(o)}\n\n`));
+      const send=(o:unknown)=>controller.enqueue(enc.encode(`data: ${JSON.stringify(o)}\n\n`));
       send({event_type:"STREAM_OPEN", payload:{sid}});
-      let offset=0, alive=true, kill=setTimeout(()=>{alive=false}, 1000*60*5);
+      let offset=0, alive=true; const kill=setTimeout(()=>{alive=false}, 1000*60*5);
       while(alive){
         try{
           const len=(await kv.llen(Q(sid)))||0;
@@ -27,7 +27,7 @@ export async function GET(req:NextRequest){
               if(e?.event_type==="SESSION_END"){ alive=false; break; }
             }
           }
-        }catch(e:any){ send({event_type:"AGENT_DIAG", payload:{model:"system",status:"FAILURE",errorType:"API_ERROR_5XX",message:String(e)}}); }
+        }catch(e){ send({event_type:"AGENT_DIAG", payload:{model:"system",status:"FAILURE",errorType:"API_ERROR_5XX",message:String(e)}}); }
         await new Promise(r=>setTimeout(r,300));
       }
       clearTimeout(kill); controller.close();

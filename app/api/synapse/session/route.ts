@@ -14,7 +14,7 @@ export async function POST(req:NextRequest){
   await kv.set(P(sid), String(prompt));
   await kv.del(Q(sid));
   await kv.lpush(Q(sid), JSON.stringify({event_type:"SESSION_START", payload:{sid, ts:Date.now()}}));
-  (async()=>{ try{ await runSession(sid, String(prompt)); }catch(e:any){
+  (async()=>{ try{ await runSession(sid, String(prompt)); }catch(e){
     await kv.lpush(Q(sid), JSON.stringify({event_type:"AGENT_DIAG", payload:{model:"system",status:"FAILURE",errorType:"UNKNOWN",message:String(e)}}));
     await kv.lpush(Q(sid), JSON.stringify({event_type:"SESSION_END", payload:{}}));
   }})();

@@ -2,7 +2,9 @@ import http from "http";
 import { Server } from "socket.io";
 import { kv } from "@vercel/kv";
 const port = Number(process.env.WS_PORT||8787);
-const io = new Server(http.createServer().listen(port,{host:"0.0.0.0"}),{cors:{origin:"*"}});
+const server = http.createServer();
+server.listen(port, "0.0.0.0");
+const io = new Server(server,{cors:{origin:"*"}});
 const Q=(sid:string)=>`syn:${sid}:events`;
 io.on("connection",(socket)=>{
   socket.on("subscribe", async (sid:string)=>{

@@ -7,7 +7,8 @@
     "build": "next build --turbopack",
     "start": "next start",
     "lint": "eslint",
-    "fix:warnings": "node fix-warnings.js"
+    "fix:warnings": "node fix-warnings.js",
+    "lint:fix": "next lint --fix"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.65.0",
