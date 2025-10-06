@@ -1,7 +1,11 @@
 import fetch from "cross-fetch";
 export async function callGrok(prompt:string){
   const model = "grok-4-0709";
-  const key = process.env.XAI_API_KEY!;
+  let key = (process.env.XAI_API_KEY || "").trim();
+  // Remove Bearer prefix if present
+  if (key.startsWith("Bearer ")) {
+    key = key.substring(7).trim();
+  }
   const rsp = await fetch("https://api.x.ai/v1/chat/completions",{
     method:"POST",
     headers:{ "Authorization":`Bearer ${key}`, "Content-Type":"application/json" },
@@ -12,4 +16,3 @@ export async function callGrok(prompt:string){
   const text = json?.choices?.[0]?.message?.content ?? "";
   return { provider:"xai", model, text };
 }
-
