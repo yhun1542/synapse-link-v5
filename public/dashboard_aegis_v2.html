@@ -1,139 +1,416 @@
-<!DOCTYPE html><html lang="ko"><head>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Aegis V2 – Live</title>
-<script src="https://cdn.tailwindcss.com"></script>
-<link href="https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_2001@1.1/GmarketSans.woff" rel="stylesheet" type="text/css">
-<script src="https://unpkg.com/lucide@latest"></script>
-<style>
-:root { --font-gmarket:'GmarketSans',sans-serif; --bg:#020617; --card:#0f172a; --border:#334155; --text:#e2e8f0; --muted:#94a3b8; --blue:#38bdf8; --green:#34d399; --yellow:#fbbf24;}
-body{ background-color:var(--bg); color:var(--text); font-family:var(--font-gmarket);}
-.progress-bar-inner{ transition: width .5s ease-in-out;}
-.gm-bold{font-weight:700}.gm-med{font-weight:500}.gm-light{font-weight:300}
-.badge{display:inline-block;padding:.2rem .6rem;border-radius:9999px;font-size:.7rem}
-.badge-live{background:#16a34a;color:#fff}.badge-warn{background:#f59e0b;color:#111}
-</style></head>
-<body class="p-4 md:p-6 max-w-screen-xl mx-auto">
-<header class="mb-6 flex justify-between items-center">
-  <div><h1 class="text-2xl md:text-3xl gm-bold text-white">작전 지휘 센터 "Aegis V2"</h1>
-  <p class="text-sm gm-light" style="color:var(--muted);">실시간 AI 챔피언십 현황</p></div>
-  <div id="status" class="text-right"><span class="badge badge-warn">DISCONNECTED</span></div>
-</header>
-
-<main class="space-y-8">
-  <section>
-    <h2 class="text-xl gm-med text-white mb-4">AI Championship Arena</h2>
-    <div id="cards" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"></div>
-  </section>
-
-  <section class="bg-[var(--card)] border border-yellow-500/50 rounded-lg p-4">
-    <h2 class="text-lg gm-med text-yellow-400 mb-3">지휘 통제 (C&C)</h2>
-    <div id="log" class="h-48 overflow-y-auto mb-3 p-2 bg-black/30 rounded-md text-sm gm-light"></div>
-    <div class="flex gap-2">
-      <input id="prompt" class="flex-grow bg-gray-900/50 border border-gray-600 rounded-md px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 gm-light" placeholder="명령 또는 질의 입력...">
-      <button id="run" class="bg-blue-600 hover:bg-blue-700 text-white gm-med py-2 px-4 rounded-md">실행</button>
-    </div>
-  </section>
-
-  <section>
-    <h2 class="text-xl gm-med mb-2">지식 그래프</h2>
-    <pre id="graph" class="text-xs bg-black/30 border border-[var(--border)] p-3 rounded-md overflow-x-auto"></pre>
-  </section>
-</main>
-
-<script>
-const providers = ["Gemini","Claude","Grok","GPT-4o"];
-const icons = { default:"brain-circuit" };
-function cardTemplate(p){ return `
-  <div class="bg-[var(--card)] border border-[var(--border)] rounded-lg p-4 flex flex-col justify-between h-48">
-    <div>
-      <div class="flex justify-between items-center mb-2">
-        <h3 class="text-lg gm-bold text-white">${p}</h3>
-        <i data-lucide="brain-circuit" style="color:var(--blue);"></i>
-      </div>
-      <p id="act-${p}" class="text-sm gm-light mb-3" style="color:var(--muted);">대기 중…</p>
-    </div>
-    <div class="w-full bg-gray-700 rounded-full h-2.5"><div id="bar-${p}" class="bg-[var(--green)] h-2.5 rounded-full progress-bar-inner" style="width:0%"></div></div>
-  </div>`; }
-
-function setProgress(p, v){ document.getElementById('bar-'+p).style.width = v+'%'; }
-function setActivity(p, t){ document.getElementById('act-'+p).textContent = t; }
-function log(msg){ const el=document.getElementById('log'); const t=document.createElement('div'); t.textContent = new Date().toLocaleTimeString()+" | "+msg; el.appendChild(t); el.scrollTop=el.scrollHeight; }
-
-function renderCards(){
-  const c=document.getElementById('cards');
-  c.innerHTML = providers.map(cardTemplate).join('');
-  lucide.createIcons();
-}
-
-async function startRun(userPrompt){
-  document.getElementById('status').innerHTML = '<span class="badge badge-live">LIVE</span>';
-  renderCards();
-  
-  fetch('/api/synapse', { 
-    method:'POST', 
-    headers:{'Content-Type':'application/json'}, 
-    body: JSON.stringify({prompt:userPrompt||'Explain CRE market regime shifts'})
-  }).then(response => {
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    
-    function readStream() {
-      reader.read().then(({ done, value }) => {
-        if (done) {
-          log("스트림 종료");
-          return;
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>작전 지휘 센터 "Aegis V2"</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_2001@1.1/GmarketSans.woff" rel="stylesheet" type="text/css">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        :root {
+            --font-gmarket: 'GmarketSans', sans-serif;
+            --bg-primary: #020617;
+            --bg-secondary: #0f172a;
+            --border-primary: #334155;
+            --text-primary: #e2e8f0;
+            --accent-blue: #38bdf8;
+            --accent-green: #10b981;
+            --accent-red: #ef4444;
         }
+        body {
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            font-family: var(--font-gmarket);
+        }
+        .gmarket-medium { font-weight: 500; }
+        .card {
+            background-color: var(--bg-secondary);
+            border: 1px solid var(--border-primary);
+            border-radius: 0.5rem;
+            padding: 1rem;
+        }
+        .log-entry {
+            border-bottom: 1px dashed var(--border-primary);
+            padding: 0.25rem 0;
+            font-size: 0.8rem;
+            font-family: monospace;
+        }
+        @keyframes pulse-ring {
+            0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+        }
+        .live-indicator {
+            animation: pulse-ring 2s infinite;
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+    <div class="max-w-7xl mx-auto">
+
+        <header class="flex justify-between items-center mb-6">
+            <h1 class="text-2xl md:text-3xl gmarket-medium text-white flex items-center">
+                <i data-lucide="shield-check" class="mr-3 text-sky-400"></i>
+                AEGIS V2 :: 작전 지휘 센터
+            </h1>
+            <div class="flex items-center text-sm">
+                <span id="connection-status" class="text-red-500 mr-3">대기 중</span>
+                <div id="live-indicator-dot" class="w-3 h-3 rounded-full bg-red-500"></div>
+            </div>
+        </header>
+
+        <div class="card mb-6 p-4">
+            <div class="flex flex-wrap items-center gap-4">
+                <input type="text" id="prompt-input" placeholder="오케스트레이션 프롬프트 입력 (e.g., Analyze CRE market trends in Seoul)" class="flex-1 bg-gray-800 border border-gray-600 text-white p-2 rounded-md focus:ring-sky-500 focus:border-sky-500 min-w-[300px]">
+                <button id="start-orchestration-btn" onclick="startOrchestration()" class="bg-sky-600 hover:bg-sky-700 text-white font-bold py-2 px-4 rounded-md flex items-center transition duration-300">
+                    <i data-lucide="play" class="mr-2 w-4 h-4"></i> 작전 개시
+                </button>
+                <label class="flex items-center text-sm text-gray-400">
+                    <input type="checkbox" id="use-cache-checkbox" checked class="mr-2 form-checkbox h-4 w-4 text-sky-600 bg-gray-800 border-gray-600 rounded">
+                    캐시 사용 (Warm Start)
+                </label>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+            <div class="card">
+                <h2 class="text-lg gmarket-medium mb-4 flex items-center text-sky-400">
+                    <i data-lucide="activity" class="mr-2"></i>
+                    작전 현황 (Operation Status)
+                </h2>
+                <div class="space-y-4">
+                    <div>
+                        <p class="text-sm text-gray-400">상태 메시지:</p>
+                        <p id="status-message" class="text-md gmarket-medium">시스템 대기 중...</p>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                            <p class="text-gray-400">세션 ID:</p>
+                            <p id="session-id" class="font-mono text-xs break-all">N/A</p>
+                        </div>
+                        <div>
+                            <p class="text-gray-400">선택된 모델:</p>
+                            <p id="best-model" class="font-bold">N/A</p>
+                        </div>
+                        <div>
+                            <p class="text-gray-400">지연 시간 (ms):</p>
+                            <p id="latency">N/A</p>
+                        </div>
+                        <div>
+                            <p class="text-gray-400">비용 (USD):</p>
+                            <p id="cost">N/A</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2 class="text-lg gmarket-medium mb-4 flex items-center text-amber-400">
+                    <i data-lucide="cpu" class="mr-2"></i>
+                    에이전트 모니터링 (LLM Agents)
+                </h2>
+                <div id="agent-status-container" class="space-y-3">
+                    </div>
+            </div>
+
+            <div class="card lg:row-span-2">
+                <h2 class="text-lg gmarket-medium mb-4 flex items-center text-white">
+                    <i data-lucide="terminal" class="mr-2"></i>
+                    실시간 작전 로그 (Real-time Logs)
+                </h2>
+                <div id="log-container" class="h-96 lg:h-[50rem] overflow-y-auto bg-black p-3 rounded-md">
+                    </div>
+            </div>
+
+            <div class="card lg:col-span-2">
+                <h2 class="text-lg gmarket-medium mb-4 flex items-center text-emerald-400">
+                    <i data-lucide="git-branch" class="mr-2"></i>
+                    지식 그래프 출력 (Knowledge Graph)
+                </h2>
+                <div id="graph-output" class="h-96 overflow-y-auto bg-gray-800 p-4 rounded-md text-sm font-mono text-gray-500">
+                    그래프 데이터 대기 중...
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        const statusMessageEl = document.getElementById('status-message');
+        const logContainer = document.getElementById('log-container');
+        const connectionStatusEl = document.getElementById('connection-status');
+        const liveIndicatorDot = document.getElementById('live-indicator-dot');
+        const agentStatusContainer = document.getElementById('agent-status-container');
+        const graphOutputEl = document.getElementById('graph-output');
+        const sessionIdEl = document.getElementById('session-id');
+        const bestModelEl = document.getElementById('best-model');
+        const latencyEl = document.getElementById('latency');
+        const costEl = document.getElementById('cost');
+        const startBtn = document.getElementById('start-orchestration-btn');
         
-        const chunk = decoder.decode(value);
-        const lines = chunk.split('\n');
-        
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            try {
-              const data = JSON.parse(line.substring(6));
-              
-              if(data.event_type==="SESSION_START"){ log("세션 시작"); }
-              if(data.event_type==="AGENT_FINISH"){
-                const name = (data.payload.provider||"").toLowerCase();
-                if(name.includes("openai")){ setProgress("GPT-4o", 100); setActivity("GPT-4o","완료"); }
-                if(name.includes("anthropic")){ setProgress("Claude", 100); setActivity("Claude","완료"); }
-                if(name.includes("gemini")){ setProgress("Gemini", 100); setActivity("Gemini","완료"); }
-                if(name.includes("xai")){ setProgress("Grok", 100); setActivity("Grok","완료"); }
-                log(`에이전트 완료: ${data.payload.provider}`);
-              }
-              if(data.event_type==="AGENT_ERROR"){
-                log(`에이전트 오류: ${data.payload.error}`);
-              }
-              if(data.event_type==="GRAPH_READY"){
-                document.getElementById('graph').textContent = JSON.stringify(data.payload, null, 2);
-                log("지식 그래프 생성됨");
-              }
-              if(data.event_type==="SESSION_END"){
-                log("세션 종료");
-              }
-            } catch(e) { 
-              console.error(e); 
+        let agents = {};
+        let isConnected = false;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+            addLog("SYSTEM", { message: "Aegis V2 초기화 완료. 작전 개시 명령 대기 중." });
+        });
+
+        function updateConnectionStatus(connected, message = '') {
+            isConnected = connected;
+            startBtn.disabled = connected;
+            if (connected) {
+                connectionStatusEl.textContent = message || '실시간 연결됨 (SSE)';
+                connectionStatusEl.className = 'text-green-500 mr-3';
+                liveIndicatorDot.className = 'w-3 h-3 rounded-full bg-green-500 live-indicator';
+                startBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            } else {
+                connectionStatusEl.textContent = message || '대기 중';
+                connectionStatusEl.className = 'text-red-500 mr-3';
+                liveIndicatorDot.className = 'w-3 h-3 rounded-full bg-red-500';
+                startBtn.classList.remove('opacity-50', 'cursor-not-allowed');
             }
-          }
         }
-        
-        readStream();
-      });
-    }
-    
-    log("스트림 연결됨");
-    readStream();
-  }).catch(e => {
-    log("스트림 오류: " + e.message);
-    document.getElementById('status').innerHTML='<span class="badge badge-warn">ERROR</span>';
-  });
-}
 
-document.getElementById('run').addEventListener('click', ()=>{
-  const p = document.getElementById('prompt').value || 'Explain CRE market regime shifts';
-  startRun(p);
-});
+        function addLog(event, data) {
+            const logEntry = document.createElement('div');
+            logEntry.className = 'log-entry';
+            const timestamp = new Date().toLocaleTimeString();
+            
+            let colorClass = 'text-white';
+            if (event === 'ERROR' || event === 'AGENT_DIAG') colorClass = 'text-red-400';
+            else if (event === 'AGENT_RETRY' || event === 'WARM_START') colorClass = 'text-yellow-400';
+            else if (event === 'GRAPH_FINAL' || event === 'SESSION_END') colorClass = 'text-green-400';
+            else if (event.startsWith('AGENT_')) colorClass = 'text-sky-400';
 
-renderCards();
-</script>
-</body></html>
+            const message = data.message || JSON.stringify(data).substring(0, 250);
+
+            logEntry.innerHTML = `<span class="text-gray-500 mr-2">[${timestamp}]</span><span class="${colorClass} font-bold mr-2">[${event}]</span><span>${message}</span>`;
+            logContainer.appendChild(logEntry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        // --- Agent Rendering Logic ---
+        function updateAgentStatus(model, status, details = {}) {
+            if (!agents[model]) {
+                agents[model] = { status: 'IDLE', latency: 0, attempts: 0, error: null };
+            }
+            
+            agents[model].status = status;
+            if (details.latency) agents[model].latency = details.latency;
+            // Use 'attempts' from AGENT_DIAG or 'attempt' from AGENT_ATTEMPT/RETRY
+            if (details.attempts || details.attempt) {
+                 agents[model].attempts = details.attempts || details.attempt;
+            }
+            if (details.errorType) agents[model].error = details.errorType;
+
+            renderAgents();
+        }
+
+        function renderAgents() {
+            agentStatusContainer.innerHTML = '';
+            // Sort agents alphabetically
+            const sortedModels = Object.keys(agents).sort();
+
+            for (const model of sortedModels) {
+                const agent = agents[model];
+                const agentBlock = document.createElement('div');
+                agentBlock.className = 'p-3 bg-gray-800 rounded-md text-sm flex justify-between items-center';
+
+                let statusColor = 'text-gray-400';
+                let statusIcon = 'loader';
+                if (agent.status === 'SUCCESS') {
+                    statusColor = 'text-green-500';
+                    statusIcon = 'check-circle';
+                } else if (agent.status === 'FAILURE') {
+                    statusColor = 'text-red-500';
+                    statusIcon = 'x-circle';
+                } else if (agent.status === 'RUNNING' || agent.status === 'RETRYING') {
+                    statusColor = 'text-sky-500';
+                    statusIcon = 'activity';
+                }
+
+                agentBlock.innerHTML = `
+                    <span class="font-medium break-all">${model}</span>
+                    <div class="flex items-center ml-4">
+                        <span class="text-xs mr-3 text-gray-500">시도: ${agent.attempts} | 지연: ${agent.latency}ms</span>
+                        <span class="${statusColor} flex items-center whitespace-nowrap">
+                            ${agent.error ? `(${agent.error})` : agent.status}
+                            <i data-lucide="${statusIcon}" class="ml-2 w-4 h-4"></i>
+                        </span>
+                    </div>
+                `;
+                agentStatusContainer.appendChild(agentBlock);
+            }
+            lucide.createIcons();
+        }
+
+        function resetDashboard() {
+            agents = {};
+            renderAgents();
+            statusMessageEl.textContent = '새로운 세션 시작됨. 데이터 대기 중...';
+            sessionIdEl.textContent = 'N/A';
+            bestModelEl.textContent = 'N/A';
+            latencyEl.textContent = 'N/A';
+            costEl.textContent = 'N/A';
+            graphOutputEl.textContent = '그래프 데이터 대기 중...';
+            logContainer.innerHTML = '';
+        }
+
+        /* 
+        ================================================
+        실시간 연결 (SSE via Fetch/ReadableStream) 로직
+        ================================================
+        백엔드(/api/synapse)가 POST 요청에 대한 응답으로 SSE 스트림을 반환하므로,
+        fetch API의 ReadableStream을 사용하여 데이터를 처리합니다.
+        */
+        async function startOrchestration() {
+            if (isConnected) return;
+
+            const promptInput = document.getElementById('prompt-input').value;
+            const useCache = document.getElementById('use-cache-checkbox').checked;
+
+            if (!promptInput) {
+                alert("프롬프트를 입력해야 합니다.");
+                return;
+            }
+
+            resetDashboard();
+            addLog("COMMAND", { message: `작전 개시 명령 수신. Prompt: ${promptInput.substring(0, 50)}... Cache: ${useCache}` });
+            updateConnectionStatus(true, '연결 중...');
+
+            try {
+                // 1. POST 요청으로 오케스트레이션 시작 및 스트림 수신
+                // NOTE: 이 코드는 Next.js 프로젝트의 /api/synapse 경로가 활성화되어 있어야 작동합니다.
+                const response = await fetch('/api/synapse', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ prompt: promptInput, useCache: useCache }),
+                });
+
+                if (!response.ok) {
+                    const errorBody = await response.text();
+                    throw new Error(`서버 오류 발생: ${response.status} - ${errorBody}`);
+                }
+
+                updateConnectionStatus(true);
+                
+                // 2. 스트림 리더 설정
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+
+                // 3. 스트림 데이터 처리 루프
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) {
+                        addLog("SYSTEM", { message: "스트림 종료됨." });
+                        break;
+                    }
+
+                    buffer += decoder.decode(value, { stream: true });
+                    
+                    // SSE 메시지 파싱 (event: ...\ndata: ...\n\n)
+                    let boundary = buffer.indexOf('\n\n');
+                    while (boundary !== -1) {
+                        const message = buffer.substring(0, boundary);
+                        processSSEMessage(message);
+                        buffer = buffer.substring(boundary + 2);
+                        boundary = buffer.indexOf('\n\n');
+                    }
+                }
+            } catch (error) {
+                console.error("Connection failed:", error);
+                addLog("SYSTEM_ERROR", { message: `스트림 연결 실패: ${error.message}` });
+                updateConnectionStatus(false, '연결 실패');
+            } finally {
+                // Ensure connection status is updated when stream finishes (successfully or otherwise)
+                if (isConnected) {
+                    updateConnectionStatus(false);
+                }
+            }
+        }
+
+        function processSSEMessage(message) {
+            const lines = message.split('\n');
+            let event = 'MESSAGE';
+            let data = '';
+
+            for (const line of lines) {
+                if (line.startsWith('event: ')) {
+                    event = line.substring(7).trim();
+                } else if (line.startsWith('data: ')) {
+                    // Append data lines (SSE supports multi-line data)
+                    data += line.substring(6).trim();
+                }
+            }
+
+            if (data) {
+                try {
+                    const parsedData = JSON.parse(data);
+                    handleEvent(event, parsedData);
+                } catch (e) {
+                    console.error("Failed to parse SSE data:", data, e);
+                    addLog("PARSE_ERROR", { message: "데이터 파싱 실패", raw: data.substring(0, 100) });
+                }
+            }
+        }
+
+        // --- Event Handling Logic ---
+        function handleEvent(event, data) {
+            addLog(event, data);
+
+            switch (event) {
+                case 'SESSION_START':
+                    sessionIdEl.textContent = data.sessionId;
+                    statusMessageEl.textContent = "세션 시작됨. 오케스트레이션 준비 중.";
+                    break;
+                case 'COLD_START':
+                case 'WARM_START':
+                    statusMessageEl.textContent = data.message;
+                    break;
+                case 'AGENT_DISPATCH':
+                    data.models.forEach(model => updateAgentStatus(model, 'QUEUED'));
+                    statusMessageEl.textContent = "에이전트 병렬 실행 시작.";
+                    break;
+                case 'AGENT_ATTEMPT':
+                    updateAgentStatus(data.model, 'RUNNING', { attempt: data.attempt });
+                    break;
+                case 'AGENT_RETRY':
+                    updateAgentStatus(data.model, 'RETRYING', { attempt: data.attempt, errorType: data.errorType });
+                    break;
+                case 'AGENT_SUCCESS':
+                    updateAgentStatus(data.model, 'SUCCESS', { latency: data.latency });
+                    break;
+                case 'AGENT_DIAG':
+                    updateAgentStatus(data.model, 'FAILURE', { latency: data.latency, attempts: data.attempts, errorType: data.errorType });
+                    break;
+                case 'RANKING_START':
+                    statusMessageEl.textContent = "결과 랭킹 및 최적 모델 선정 중.";
+                    break;
+                case 'STATUS_UPDATE':
+                    statusMessageEl.textContent = data.message;
+                    if (data.model) bestModelEl.textContent = data.model;
+                    if (data.latency) latencyEl.textContent = data.latency;
+                    if (data.cost) costEl.textContent = parseFloat(data.cost).toFixed(6);
+                    break;
+                case 'GRAPH_FINAL':
+                    statusMessageEl.textContent = "지식 그래프 생성 완료.";
+                    // Pretty print the JSON graph data
+                    graphOutputEl.textContent = JSON.stringify(data, null, 2);
+                    break;
+                case 'SESSION_END':
+                    statusMessageEl.textContent = "작전 완료.";
+                    break;
+                case 'ERROR':
+                    statusMessageEl.textContent = `치명적 오류 발생: ${data.message}`;
+                    break;
+            }
+        }
+    </script>
+</body>
+</html>
