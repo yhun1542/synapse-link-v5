@@ -3,414 +3,451 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>작전 지휘 센터 "Aegis V2"</title>
+    <title>Aegis V4 :: Singularity Command</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_2001@1.1/GmarketSans.woff" rel="stylesheet" type="text/css">
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
         :root {
             --font-gmarket: 'GmarketSans', sans-serif;
-            --bg-primary: #020617;
-            --bg-secondary: #0f172a;
-            --border-primary: #334155;
-            --text-primary: #e2e8f0;
-            --accent-blue: #38bdf8;
-            --accent-green: #10b981;
-            --accent-red: #ef4444;
+            /* Color Palette: Dark & Professional */
+            --bg-primary: #020617; /* slate-950 */
+            --bg-secondary: #0f172a; /* slate-900 */
+            --bg-card: #1e293b; /* slate-800 */
+            --border-primary: #334155; /* slate-700 */
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            /* Project Accents */
+            --accent-p1: #38bdf8; /* Sky - Insight Engine */
+            --accent-p2: #a855f7; /* Purple - Alpha One */
+            --accent-p3: #10b981; /* Emerald - A²aaS */
         }
         body {
             background-color: var(--bg-primary);
             color: var(--text-primary);
             font-family: var(--font-gmarket);
+            font-weight: 300; /* Gmarket Light */
         }
         .gmarket-medium { font-weight: 500; }
-        .card {
+        .gmarket-bold { font-weight: 700; }
+        
+        .dashboard-card {
             background-color: var(--bg-secondary);
+            border-radius: 0.75rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
             border: 1px solid var(--border-primary);
-            border-radius: 0.5rem;
-            padding: 1rem;
+            transition: all 0.3s ease;
         }
-        .log-entry {
-            border-bottom: 1px dashed var(--border-primary);
-            padding: 0.25rem 0;
-            font-size: 0.8rem;
-            font-family: monospace;
+
+        /* Custom Scrollbar for detailed views */
+        .scroll-container::-webkit-scrollbar { width: 6px; }
+        .scroll-container::-webkit-scrollbar-track { background: var(--bg-card); border-radius: 3px; }
+        .scroll-container::-webkit-scrollbar-thumb { background: var(--border-primary); border-radius: 3px; }
+
+        @keyframes pulse-live {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
         }
-        @keyframes pulse-ring {
-            0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
-            70% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
-        }
-        .live-indicator {
-            animation: pulse-ring 2s infinite;
+        .live-pulse {
+            animation: pulse-live 1.5s infinite;
         }
     </style>
 </head>
-<body class="p-4 md:p-8">
-    <div class="max-w-7xl mx-auto">
+<body class="p-3 md:p-6">
+    <div class="max-w-[1600px] mx-auto">
 
-        <header class="flex justify-between items-center mb-6">
-            <h1 class="text-2xl md:text-3xl gmarket-medium text-white flex items-center">
-                <i data-lucide="shield-check" class="mr-3 text-sky-400"></i>
-                AEGIS V2 :: 작전 지휘 센터
-            </h1>
-            <div class="flex items-center text-sm">
-                <span id="connection-status" class="text-red-500 mr-3">대기 중</span>
-                <div id="live-indicator-dot" class="w-3 h-3 rounded-full bg-red-500"></div>
+        <header class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 p-4 dashboard-card">
+            <div class="mb-4 md:mb-0">
+                <h1 class="text-2xl lg:text-3xl gmarket-bold text-white flex items-center">
+                    <i data-lucide="infinity" class="mr-4 text-sky-400 w-8 h-8"></i>
+                    AEGIS V4 :: SINGULARITY COMMAND
+                </h1>
+                <p class="text-md text-slate-400 ml-12">통합 작전 지휘 본부</p>
+            </div>
+            <div class="flex items-center space-x-6">
+                <div id="system-clock" class="text-lg font-mono text-slate-300">00:00:00</div>
+                <div class="flex items-center text-sm" id="connection-status-container">
+                    <span id="connection-status-text" class="mr-3">연결 중...</span>
+                    <div id="connection-indicator" class="w-3 h-3 rounded-full"></div>
+                </div>
             </div>
         </header>
 
-        <div class="card mb-6 p-4">
-            <div class="flex flex-wrap items-center gap-4">
-                <input type="text" id="prompt-input" placeholder="오케스트레이션 프롬프트 입력 (e.g., Analyze CRE market trends in Seoul)" class="flex-1 bg-gray-800 border border-gray-600 text-white p-2 rounded-md focus:ring-sky-500 focus:border-sky-500 min-w-[300px]">
-                <button id="start-orchestration-btn" onclick="startOrchestration()" class="bg-sky-600 hover:bg-sky-700 text-white font-bold py-2 px-4 rounded-md flex items-center transition duration-300">
-                    <i data-lucide="play" class="mr-2 w-4 h-4"></i> 작전 개시
-                </button>
-                <label class="flex items-center text-sm text-gray-400">
-                    <input type="checkbox" id="use-cache-checkbox" checked class="mr-2 form-checkbox h-4 w-4 text-sky-600 bg-gray-800 border-gray-600 rounded">
-                    캐시 사용 (Warm Start)
-                </label>
-            </div>
-        </div>
-
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-            <div class="card">
-                <h2 class="text-lg gmarket-medium mb-4 flex items-center text-sky-400">
-                    <i data-lucide="activity" class="mr-2"></i>
-                    작전 현황 (Operation Status)
-                </h2>
-                <div class="space-y-4">
-                    <div>
-                        <p class="text-sm text-gray-400">상태 메시지:</p>
-                        <p id="status-message" class="text-md gmarket-medium">시스템 대기 중...</p>
+        <div class="dashboard-card p-5 mb-8">
+            <h2 class="text-xl gmarket-medium mb-4 text-white">작전 총괄 현황 (Operation Overview)</h2>
+            <div class="flex flex-col md:flex-row items-center gap-6">
+                <div class="flex-1 w-full">
+                    <div class="flex items-center">
+                        <div class="flex-1 mr-4">
+                            <div class="relative pt-1">
+                                <div class="overflow-hidden h-6 mb-2 text-xs flex rounded bg-slate-800 shadow-inner">
+                                    <div id="overall-progress-bar" style="width:0%" class="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-gradient-to-r from-blue-600 to-sky-500 transition-all duration-700 ease-in-out"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="overall-progress-text" class="text-3xl gmarket-bold text-sky-400">0%</div>
                     </div>
-                    <div class="grid grid-cols-2 gap-4 text-sm">
-                        <div>
-                            <p class="text-gray-400">세션 ID:</p>
-                            <p id="session-id" class="font-mono text-xs break-all">N/A</p>
+                </div>
+                <div class="flex gap-4 w-full md:w-auto">
+                    <div class="bg-slate-800 p-4 rounded-lg shadow-md flex-1 md:flex-initial">
+                        <div class="flex items-center">
+                            <i data-lucide="activity" class="text-yellow-500 w-6 h-6 mr-4"></i>
+                            <div>
+                                <div id="active-tasks-count" class="text-2xl gmarket-bold text-white">0</div>
+                                <div class="text-sm text-slate-400">활성 태스크</div>
+                            </div>
                         </div>
-                        <div>
-                            <p class="text-gray-400">선택된 모델:</p>
-                            <p id="best-model" class="font-bold">N/A</p>
-                        </div>
-                        <div>
-                            <p class="text-gray-400">지연 시간 (ms):</p>
-                            <p id="latency">N/A</p>
-                        </div>
-                        <div>
-                            <p class="text-gray-400">비용 (USD):</p>
-                            <p id="cost">N/A</p>
+                    </div>
+                    <div class="bg-slate-800 p-4 rounded-lg shadow-md flex-1 md:flex-initial">
+                        <div class="flex items-center">
+                            <i data-lucide="alert-triangle" class="text-red-500 w-6 h-6 mr-4"></i>
+                            <div>
+                                <div id="blocked-tasks-count" class="text-2xl gmarket-bold text-white">0</div>
+                                <div class="text-sm text-slate-400">블락/지연</div>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
-
-            <div class="card">
-                <h2 class="text-lg gmarket-medium mb-4 flex items-center text-amber-400">
-                    <i data-lucide="cpu" class="mr-2"></i>
-                    에이전트 모니터링 (LLM Agents)
-                </h2>
-                <div id="agent-status-container" class="space-y-3">
-                    </div>
-            </div>
-
-            <div class="card lg:row-span-2">
-                <h2 class="text-lg gmarket-medium mb-4 flex items-center text-white">
-                    <i data-lucide="terminal" class="mr-2"></i>
-                    실시간 작전 로그 (Real-time Logs)
-                </h2>
-                <div id="log-container" class="h-96 lg:h-[50rem] overflow-y-auto bg-black p-3 rounded-md">
-                    </div>
-            </div>
-
-            <div class="card lg:col-span-2">
-                <h2 class="text-lg gmarket-medium mb-4 flex items-center text-emerald-400">
-                    <i data-lucide="git-branch" class="mr-2"></i>
-                    지식 그래프 출력 (Knowledge Graph)
-                </h2>
-                <div id="graph-output" class="h-96 overflow-y-auto bg-gray-800 p-4 rounded-md text-sm font-mono text-gray-500">
-                    그래프 데이터 대기 중...
-                </div>
-            </div>
-
         </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8" id="project-container">
+            <div id="project-P1_INSIGHT_ENGINE" class="dashboard-card p-5 flex flex-col min-h-[70vh]"></div>
+            <div id="project-P2_ALPHA_ONE" class="dashboard-card p-5 flex flex-col min-h-[70vh]"></div>
+            <div id="project-P3_A2AAS" class="dashboard-card p-5 flex flex-col min-h-[70vh]"></div>
+        </div>
+
     </div>
 
     <script>
-        const statusMessageEl = document.getElementById('status-message');
-        const logContainer = document.getElementById('log-container');
-        const connectionStatusEl = document.getElementById('connection-status');
-        const liveIndicatorDot = document.getElementById('live-indicator-dot');
-        const agentStatusContainer = document.getElementById('agent-status-container');
-        const graphOutputEl = document.getElementById('graph-output');
-        const sessionIdEl = document.getElementById('session-id');
-        const bestModelEl = document.getElementById('best-model');
-        const latencyEl = document.getElementById('latency');
-        const costEl = document.getElementById('cost');
-        const startBtn = document.getElementById('start-orchestration-btn');
-        
-        let agents = {};
-        let isConnected = false;
-
-        document.addEventListener('DOMContentLoaded', () => {
-            lucide.createIcons();
-            addLog("SYSTEM", { message: "Aegis V2 초기화 완료. 작전 개시 명령 대기 중." });
-        });
-
-        function updateConnectionStatus(connected, message = '') {
-            isConnected = connected;
-            startBtn.disabled = connected;
-            if (connected) {
-                connectionStatusEl.textContent = message || '실시간 연결됨 (SSE)';
-                connectionStatusEl.className = 'text-green-500 mr-3';
-                liveIndicatorDot.className = 'w-3 h-3 rounded-full bg-green-500 live-indicator';
-                startBtn.classList.add('opacity-50', 'cursor-not-allowed');
-            } else {
-                connectionStatusEl.textContent = message || '대기 중';
-                connectionStatusEl.className = 'text-red-500 mr-3';
-                liveIndicatorDot.className = 'w-3 h-3 rounded-full bg-red-500';
-                startBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-            }
-        }
-
-        function addLog(event, data) {
-            const logEntry = document.createElement('div');
-            logEntry.className = 'log-entry';
-            const timestamp = new Date().toLocaleTimeString();
-            
-            let colorClass = 'text-white';
-            if (event === 'ERROR' || event === 'AGENT_DIAG') colorClass = 'text-red-400';
-            else if (event === 'AGENT_RETRY' || event === 'WARM_START') colorClass = 'text-yellow-400';
-            else if (event === 'GRAPH_FINAL' || event === 'SESSION_END') colorClass = 'text-green-400';
-            else if (event.startsWith('AGENT_')) colorClass = 'text-sky-400';
-
-            const message = data.message || JSON.stringify(data).substring(0, 250);
-
-            logEntry.innerHTML = `<span class="text-gray-500 mr-2">[${timestamp}]</span><span class="${colorClass} font-bold mr-2">[${event}]</span><span>${message}</span>`;
-            logContainer.appendChild(logEntry);
-            logContainer.scrollTop = logContainer.scrollHeight;
-        }
-
-        // --- Agent Rendering Logic ---
-        function updateAgentStatus(model, status, details = {}) {
-            if (!agents[model]) {
-                agents[model] = { status: 'IDLE', latency: 0, attempts: 0, error: null };
-            }
-            
-            agents[model].status = status;
-            if (details.latency) agents[model].latency = details.latency;
-            // Use 'attempts' from AGENT_DIAG or 'attempt' from AGENT_ATTEMPT/RETRY
-            if (details.attempts || details.attempt) {
-                 agents[model].attempts = details.attempts || details.attempt;
-            }
-            if (details.errorType) agents[model].error = details.errorType;
-
-            renderAgents();
-        }
-
-        function renderAgents() {
-            agentStatusContainer.innerHTML = '';
-            // Sort agents alphabetically
-            const sortedModels = Object.keys(agents).sort();
-
-            for (const model of sortedModels) {
-                const agent = agents[model];
-                const agentBlock = document.createElement('div');
-                agentBlock.className = 'p-3 bg-gray-800 rounded-md text-sm flex justify-between items-center';
-
-                let statusColor = 'text-gray-400';
-                let statusIcon = 'loader';
-                if (agent.status === 'SUCCESS') {
-                    statusColor = 'text-green-500';
-                    statusIcon = 'check-circle';
-                } else if (agent.status === 'FAILURE') {
-                    statusColor = 'text-red-500';
-                    statusIcon = 'x-circle';
-                } else if (agent.status === 'RUNNING' || agent.status === 'RETRYING') {
-                    statusColor = 'text-sky-500';
-                    statusIcon = 'activity';
-                }
-
-                agentBlock.innerHTML = `
-                    <span class="font-medium break-all">${model}</span>
-                    <div class="flex items-center ml-4">
-                        <span class="text-xs mr-3 text-gray-500">시도: ${agent.attempts} | 지연: ${agent.latency}ms</span>
-                        <span class="${statusColor} flex items-center whitespace-nowrap">
-                            ${agent.error ? `(${agent.error})` : agent.status}
-                            <i data-lucide="${statusIcon}" class="ml-2 w-4 h-4"></i>
-                        </span>
-                    </div>
-                `;
-                agentStatusContainer.appendChild(agentBlock);
-            }
-            lucide.createIcons();
-        }
-
-        function resetDashboard() {
-            agents = {};
-            renderAgents();
-            statusMessageEl.textContent = '새로운 세션 시작됨. 데이터 대기 중...';
-            sessionIdEl.textContent = 'N/A';
-            bestModelEl.textContent = 'N/A';
-            latencyEl.textContent = 'N/A';
-            costEl.textContent = 'N/A';
-            graphOutputEl.textContent = '그래프 데이터 대기 중...';
-            logContainer.innerHTML = '';
-        }
-
-        /* 
-        ================================================
-        실시간 연결 (SSE via Fetch/ReadableStream) 로직
-        ================================================
-        백엔드(/api/synapse)가 POST 요청에 대한 응답으로 SSE 스트림을 반환하므로,
-        fetch API의 ReadableStream을 사용하여 데이터를 처리합니다.
-        */
-        async function startOrchestration() {
-            if (isConnected) return;
-
-            const promptInput = document.getElementById('prompt-input').value;
-            const useCache = document.getElementById('use-cache-checkbox').checked;
-
-            if (!promptInput) {
-                alert("프롬프트를 입력해야 합니다.");
-                return;
-            }
-
-            resetDashboard();
-            addLog("COMMAND", { message: `작전 개시 명령 수신. Prompt: ${promptInput.substring(0, 50)}... Cache: ${useCache}` });
-            updateConnectionStatus(true, '연결 중...');
-
-            try {
-                // 1. POST 요청으로 오케스트레이션 시작 및 스트림 수신
-                // NOTE: 이 코드는 Next.js 프로젝트의 /api/synapse 경로가 활성화되어 있어야 작동합니다.
-                const response = await fetch('/api/synapse', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
+        // =================================================================
+        // 1. 마스터 플랜 데이터 구조 (Master Plan Data Structure)
+        // =================================================================
+        // 이 구조는 백엔드 상태와 동기화됩니다. status: PENDING, IN_PROGRESS, COMPLETED, BLOCKED
+        const MASTER_PLAN = {
+            "P1_INSIGHT_ENGINE": {
+                name: "P1: The Insight Engine (예측 코어)",
+                accent: "p1",
+                phases: {
+                    "PHASE_1_1": {
+                        name: "1.1 Data Fusion Pipeline (데이터 융합)",
+                        tasks: [
+                            { id: "T1_1_L1_EDGAR", name: "L1: EDGAR Connector (edgar.py)", progress: 0, status: 'PENDING' },
+                            { id: "T1_1_L1_NEWS", name: "L1: NewsAPI Connector (news.py)", progress: 0, status: 'PENDING' },
+                            { id: "T1_1_L1_NASA", name: "L1: NASA Connector (nasa.py)", progress: 0, status: 'PENDING' },
+                            { id: "T1_1_L2_PLANET", name: "L2: Planet Labs (Trial Procurement)", progress: 0, status: 'PENDING' },
+                            { id: "T1_1_L2_SAFEGRAPH", name: "L2: SafeGraph (Trial Procurement)", progress: 0, status: 'PENDING' },
+                            { id: "T1_1_L3_SECONDMEASURE", name: "L3: Second Measure (Purchase)", progress: 0, status: 'PENDING' },
+                            { id: "T1_1_FUSION_ENGINE", name: "OASIS-Lumio Fusion Engine Core", progress: 0, status: 'PENDING' }
+                        ]
                     },
-                    body: JSON.stringify({ prompt: promptInput, useCache: useCache }),
-                });
-
-                if (!response.ok) {
-                    const errorBody = await response.text();
-                    throw new Error(`서버 오류 발생: ${response.status} - ${errorBody}`);
+                    "PHASE_1_2": {
+                        name: "1.2 Causal & Predictive Modeling (인과 추론)",
+                        tasks: [
+                            { id: "T1_2_TCI", name: "EmarkOS TCI Module (Causal Graph)", progress: 0, status: 'PENDING' },
+                            { id: "T1_2_NDDE_PINN", name: "NDDE/PINN Predictive Models", progress: 0, status: 'PENDING' },
+                            { id: "T1_2_BACKTESTING", name: "Backtesting Framework", progress: 0, status: 'PENDING' }
+                        ]
+                    }
                 }
+            },
+            "P2_ALPHA_ONE": {
+                name: "P2: Alpha One (투자 집행 플랫폼)",
+                accent: "p2",
+                phases: {
+                    "PHASE_2_1": {
+                        name: "2.1 C&C Dashboard (지휘 통제)",
+                        tasks: [
+                            { id: "T2_1_VISUALIZATION", name: "LuminEX Real-time Visualization", progress: 0, status: 'PENDING' },
+                            { id: "T2_1_TRADE_UI", name: "Trade Proposal UI/UX", progress: 0, status: 'PENDING' },
+                            { id: "T2_1_PNL_TRACKING", name: "Real-time PnL Tracking", progress: 0, status: 'PENDING' }
+                        ]
+                    },
+                    "PHASE_2_2": {
+                        name: "2.2 Trade Execution Engine (거래 엔진)",
+                        tasks: [
+                            { id: "T2_2_BROKER_API", name: "Global Broker API (IBKR) Integration", progress: 0, status: 'PENDING' },
+                            { id: "T2_2_AUTO_AGENT", name: "Chimera Z+ Autonomous Trading Agent", progress: 0, status: 'PENDING' },
+                            { id: "T2_2_CDT_VETO", name: "Project Bank CDT (Cognitive Veto)", progress: 0, status: 'PENDING' },
+                            { id: "T2_2_CCR_LOGGING", name: "EmarkOS CCR (Immutable Logging)", progress: 0, status: 'PENDING' }
+                        ]
+                    }
+                }
+            },
+            "P3_A2AAS": {
+                name: "P3: A²aaS (자율 개발 플랫폼)",
+                accent: "p3",
+                phases: {
+                    "PHASE_3_1": {
+                        name: "3.1 Platform APIization (API화)",
+                        tasks: [
+                            { id: "T3_1_TDD_API", name: "Chimera Z+ TDD Engine API", progress: 0, status: 'PENDING' },
+                            { id: "T3_1_ORCHESTRATION_API", name: "UAF v32 Orchestration API", progress: 0, status: 'PENDING' }
+                        ]
+                    },
+                    "PHASE_3_2": {
+                        name: "3.2 Project Genesis (No-Code 빌더)",
+                        tasks: [
+                            { id: "T3_2_BUILDER_UI", name: "No-Code Builder UI/UX", progress: 0, status: 'PENDING' },
+                            { id: "T3_2_BACKEND_INTEGRATION", name: "Backend Integration & Deployment", progress: 0, status: 'PENDING' },
+                            { id: "T3_2_MARKETPLACE", name: "AI Agent Marketplace", progress: 0, status: 'PENDING' }
+                        ]
+                    }
+                }
+            }
+        };
 
-                updateConnectionStatus(true);
+        // =================================================================
+        // 2. UI 렌더링 및 계산 로직 (Rendering & Calculation Logic)
+        // =================================================================
+
+        // 계층적 진행률 계산 (재귀적)
+        function calculateProgress(item) {
+            if (item.tasks) {
+                // Phase Progress Calculation
+                const totalTasks = item.tasks.length;
+                if (totalTasks === 0) return 0;
+                const completedProgress = item.tasks.reduce((sum, task) => sum + task.progress, 0);
+                return completedProgress / totalTasks;
+            }
+            if (item.phases) {
+                // Project Progress Calculation
+                const phaseKeys = Object.keys(item.phases);
+                const totalPhases = phaseKeys.length;
+                if (totalPhases === 0) return 0;
+                const completedProgress = phaseKeys.reduce((sum, key) => sum + calculateProgress(item.phases[key]), 0);
+                return completedProgress / totalPhases;
+            }
+            return 0;
+        }
+
+        function renderTask(task) {
+            let statusIcon = 'clock';
+            let statusColor = 'text-slate-500';
+            let textStyle = 'text-slate-400';
+            
+            if (task.status === 'IN_PROGRESS') {
+                statusIcon = 'activity';
+                statusColor = 'text-yellow-500 live-pulse';
+                textStyle = 'text-white gmarket-medium';
+            } else if (task.status === 'COMPLETED') {
+                statusIcon = 'check-circle';
+                statusColor = 'text-emerald-500';
+                textStyle = 'text-slate-500 line-through';
+            } else if (task.status === 'BLOCKED') {
+                statusIcon = 'alert-triangle';
+                statusColor = 'text-red-500';
+                textStyle = 'text-red-400';
+            }
+
+            return `
+                <div class="flex items-center justify-between py-2 text-sm border-b border-slate-700 last:border-b-0">
+                    <div class="flex items-center pr-3">
+                        <i data-lucide="${statusIcon}" class="w-4 h-4 mr-3 ${statusColor}"></i>
+                        <span class="${textStyle}">${task.name}</span>
+                    </div>
+                    <span class="text-xs font-mono ${statusColor} whitespace-nowrap">${Math.round(task.progress)}%</span>
+                </div>
+            `;
+        }
+
+        function renderPhase(phaseId, phaseData) {
+            const phaseProgress = calculateProgress(phaseData);
+            const tasksHtml = phaseData.tasks.map(renderTask).join('');
+
+            // Highlight active phase
+            const isActive = phaseData.tasks.some(t => t.status === 'IN_PROGRESS');
+            const headerStyle = isActive ? 'text-white border-yellow-500' : 'text-slate-400 border-slate-700';
+
+            return `
+                <div class="mb-6 last:mb-0">
+                    <div class="flex justify-between items-center mb-3 pb-2 border-b ${headerStyle}">
+                        <h3 class="text-md gmarket-medium">${phaseData.name}</h3>
+                        <span class="text-sm font-mono">${Math.round(phaseProgress)}%</span>
+                    </div>
+                    <div class="pl-3">
+                        ${tasksHtml}
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderProject(projectId, projectData) {
+            const projectProgress = calculateProgress(projectData);
+            const phasesHtml = Object.keys(projectData.phases).map(key => renderPhase(key, projectData.phases[key])).join('');
+            
+            const container = document.getElementById(`project-${projectId}`);
+            if (!container) return;
+
+            // Get the dynamic accent color from CSS variables
+            const accentColorHex = getComputedStyle(document.documentElement).getPropertyValue(`--accent-${projectData.accent}`).trim();
+
+            container.innerHTML = `
+                <div class="flex justify-between items-start mb-5">
+                    <h2 class="text-xl gmarket-bold pr-4" style="color: ${accentColorHex};">${projectData.name}</h2>
+                    <div class="text-2xl gmarket-bold" style="color: ${accentColorHex};">${Math.round(projectProgress)}%</div>
+                </div>
                 
-                // 2. 스트림 리더 설정
-                const reader = response.body.getReader();
-                const decoder = new TextDecoder();
-                let buffer = '';
+                <div class="mb-5">
+                    <div class="w-full bg-slate-700 rounded-full h-2.5 shadow-inner">
+                        <div class="h-2.5 rounded-full transition-all duration-700 ease-in-out" style="width: ${projectProgress}%; background-color: ${accentColorHex};"></div>
+                    </div>
+                </div>
 
-                // 3. 스트림 데이터 처리 루프
-                while (true) {
-                    const { done, value } = await reader.read();
-                    if (done) {
-                        addLog("SYSTEM", { message: "스트림 종료됨." });
-                        break;
+                <div class="flex-grow overflow-y-auto pr-3 scroll-container" style="max-height: 65vh;">
+                    ${phasesHtml}
+                </div>
+            `;
+        }
+
+        function updateOverview() {
+            const projectKeys = Object.keys(MASTER_PLAN);
+            const totalProjects = projectKeys.length;
+            let overallProgress = 0;
+            let activeTasks = 0;
+            let blockedTasks = 0;
+
+            if (totalProjects > 0) {
+                const completedProgress = projectKeys.reduce((sum, key) => sum + calculateProgress(MASTER_PLAN[key]), 0);
+                overallProgress = completedProgress / totalProjects;
+            }
+
+            // Calculate active and blocked tasks
+            for (const projectId in MASTER_PLAN) {
+                for (const phaseId in MASTER_PLAN[projectId].phases) {
+                    MASTER_PLAN[projectId].phases[phaseId].tasks.forEach(task => {
+                        if (task.status === 'IN_PROGRESS') activeTasks++;
+                        if (task.status === 'BLOCKED') blockedTasks++;
+                    });
+                }
+            }
+
+            document.getElementById('overall-progress-bar').style.width = `${overallProgress}%`;
+            document.getElementById('overall-progress-text').textContent = `${Math.round(overallProgress)}%`;
+            document.getElementById('active-tasks-count').textContent = activeTasks;
+            document.getElementById('blocked-tasks-count').textContent = blockedTasks;
+        }
+
+        function renderDashboard() {
+            Object.keys(MASTER_PLAN).forEach(key => renderProject(key, MASTER_PLAN[key]));
+            updateOverview();
+            lucide.createIcons();
+        }
+
+        // =================================================================
+        // 3. 실시간 통신 및 시스템 로직 (Real-time Communication)
+        // =================================================================
+
+        // 백엔드로부터 업데이트 수신 시 호출되는 함수 (SSE 이벤트 핸들러)
+        function handleTaskUpdate(taskId, progress, status) {
+            for (const projectId in MASTER_PLAN) {
+                const project = MASTER_PLAN[projectId];
+                for (const phaseId in project.phases) {
+                    const phase = project.phases[phaseId];
+                    const task = phase.tasks.find(t => t.id === taskId);
+                    if (task) {
+                        task.progress = Math.min(100, progress);
+                        task.status = status;
+                        if (task.progress === 100 && status !== 'BLOCKED') {
+                            task.status = 'COMPLETED';
+                        }
+                        
+                        // 데이터 변경 후 전체 대시보드 상태 재계산 및 렌더링
+                        renderDashboard();
+                        return;
                     }
-
-                    buffer += decoder.decode(value, { stream: true });
-                    
-                    // SSE 메시지 파싱 (event: ...\ndata: ...\n\n)
-                    let boundary = buffer.indexOf('\n\n');
-                    while (boundary !== -1) {
-                        const message = buffer.substring(0, boundary);
-                        processSSEMessage(message);
-                        buffer = buffer.substring(boundary + 2);
-                        boundary = buffer.indexOf('\n\n');
-                    }
-                }
-            } catch (error) {
-                console.error("Connection failed:", error);
-                addLog("SYSTEM_ERROR", { message: `스트림 연결 실패: ${error.message}` });
-                updateConnectionStatus(false, '연결 실패');
-            } finally {
-                // Ensure connection status is updated when stream finishes (successfully or otherwise)
-                if (isConnected) {
-                    updateConnectionStatus(false);
                 }
             }
         }
 
-        function processSSEMessage(message) {
-            const lines = message.split('\n');
-            let event = 'MESSAGE';
-            let data = '';
+        function updateClock() {
+            const now = new Date();
+            document.getElementById('system-clock').textContent = now.toLocaleTimeString('ko-KR', { hour12: false });
+        }
 
-            for (const line of lines) {
-                if (line.startsWith('event: ')) {
-                    event = line.substring(7).trim();
-                } else if (line.startsWith('data: ')) {
-                    // Append data lines (SSE supports multi-line data)
-                    data += line.substring(6).trim();
-                }
-            }
-
-            if (data) {
-                try {
-                    const parsedData = JSON.parse(data);
-                    handleEvent(event, parsedData);
-                } catch (e) {
-                    console.error("Failed to parse SSE data:", data, e);
-                    addLog("PARSE_ERROR", { message: "데이터 파싱 실패", raw: data.substring(0, 100) });
-                }
+        function updateConnectionStatus(connected, mode = 'Live (SSE)') {
+            const statusText = document.getElementById('connection-status-text');
+            const indicator = document.getElementById('connection-indicator');
+            if (connected) {
+                statusText.textContent = mode;
+                statusText.className = 'text-emerald-500 mr-3';
+                indicator.className = 'w-3 h-3 rounded-full bg-emerald-500 shadow-md shadow-emerald-500/50 live-pulse';
+            } else {
+                statusText.textContent = '연결 끊김 (재시도 중)';
+                statusText.className = 'text-red-500 mr-3';
+                indicator.className = 'w-3 h-3 rounded-full bg-red-500';
             }
         }
 
-        // --- Event Handling Logic ---
-        function handleEvent(event, data) {
-            addLog(event, data);
+        function connectToStream() {
+            // NOTE: 실제 환경에서는 아래 주석 처리된 EventSource 코드를 활성화하고 엔드포인트를 설정해야 합니다.
+            /*
+            const eventSource = new EventSource('/api/operation-status-stream');
+            eventSource.onopen = () => updateConnectionStatus(true);
+            eventSource.addEventListener('TASK_UPDATE', (event) => {
+                const data = JSON.parse(event.data);
+                handleTaskUpdate(data.taskId, data.progress, data.status);
+            });
+            eventSource.onerror = () => {
+                updateConnectionStatus(false);
+                eventSource.close();
+                setTimeout(connectToStream, 5000); // Reconnection logic
+            };
+            */
 
-            switch (event) {
-                case 'SESSION_START':
-                    sessionIdEl.textContent = data.sessionId;
-                    statusMessageEl.textContent = "세션 시작됨. 오케스트레이션 준비 중.";
-                    break;
-                case 'COLD_START':
-                case 'WARM_START':
-                    statusMessageEl.textContent = data.message;
-                    break;
-                case 'AGENT_DISPATCH':
-                    data.models.forEach(model => updateAgentStatus(model, 'QUEUED'));
-                    statusMessageEl.textContent = "에이전트 병렬 실행 시작.";
-                    break;
-                case 'AGENT_ATTEMPT':
-                    updateAgentStatus(data.model, 'RUNNING', { attempt: data.attempt });
-                    break;
-                case 'AGENT_RETRY':
-                    updateAgentStatus(data.model, 'RETRYING', { attempt: data.attempt, errorType: data.errorType });
-                    break;
-                case 'AGENT_SUCCESS':
-                    updateAgentStatus(data.model, 'SUCCESS', { latency: data.latency });
-                    break;
-                case 'AGENT_DIAG':
-                    updateAgentStatus(data.model, 'FAILURE', { latency: data.latency, attempts: data.attempts, errorType: data.errorType });
-                    break;
-                case 'RANKING_START':
-                    statusMessageEl.textContent = "결과 랭킹 및 최적 모델 선정 중.";
-                    break;
-                case 'STATUS_UPDATE':
-                    statusMessageEl.textContent = data.message;
-                    if (data.model) bestModelEl.textContent = data.model;
-                    if (data.latency) latencyEl.textContent = data.latency;
-                    if (data.cost) costEl.textContent = parseFloat(data.cost).toFixed(6);
-                    break;
-                case 'GRAPH_FINAL':
-                    statusMessageEl.textContent = "지식 그래프 생성 완료.";
-                    // Pretty print the JSON graph data
-                    graphOutputEl.textContent = JSON.stringify(data, null, 2);
-                    break;
-                case 'SESSION_END':
-                    statusMessageEl.textContent = "작전 완료.";
-                    break;
-                case 'ERROR':
-                    statusMessageEl.textContent = `치명적 오류 발생: ${data.message}`;
-                    break;
-            }
+            // 시뮬레이션 모드 실행
+            console.log("Running in simulation mode.");
+            updateConnectionStatus(true, 'Simulation Mode');
+            runSimulation();
         }
+
+        // =================================================================
+        // 4. 시뮬레이션 (Simulation for Demonstration)
+        // =================================================================
+        // 현재 작전 상황("알파 신디시스")을 반영한 시뮬레이션
+        function runSimulation() {
+            const simulationSteps = [
+                // Operation Alpha Synthesis Start (Layer 1 Implementation)
+                { delay: 1000, taskId: 'T1_1_L1_EDGAR', progress: 10, status: 'IN_PROGRESS' },
+                { delay: 1200, taskId: 'T1_1_L1_NEWS', progress: 5, status: 'IN_PROGRESS' },
+                { delay: 3000, taskId: 'T1_1_L1_EDGAR', progress: 80, status: 'IN_PROGRESS' },
+                { delay: 4000, taskId: 'T1_1_L1_NEWS', progress: 100, status: 'COMPLETED' },
+                { delay: 5000, taskId: 'T1_1_L1_EDGAR', progress: 100, status: 'COMPLETED' },
+                { delay: 5500, taskId: 'T1_1_L1_NASA', progress: 30, status: 'IN_PROGRESS' },
+                
+                // Layer 2/3 Procurement Start
+                { delay: 6000, taskId: 'T1_1_L2_PLANET', progress: 10, status: 'IN_PROGRESS' }, // Trial Request Sent
+                { delay: 6500, taskId: 'T1_1_L2_SAFEGRAPH', progress: 10, status: 'IN_PROGRESS' }, // Trial Request Sent
+                { delay: 7000, taskId: 'T1_1_L3_SECONDMEASURE', progress: 20, status: 'IN_PROGRESS' }, // Budget Approved, Contract Start
+
+                // Parallel Project Activity
+                { delay: 7500, taskId: 'T2_1_VISUALIZATION', progress: 25, status: 'IN_PROGRESS' }, // Aegis V4 Dev
+                { delay: 8000, taskId: 'T3_1_TDD_API', progress: 5, status: 'IN_PROGRESS' },
+
+                // Further Progress & Blockage
+                { delay: 9000, taskId: 'T1_1_L1_NASA', progress: 100, status: 'COMPLETED' },
+                { delay: 10000, taskId: 'T1_1_L2_PLANET', progress: 30, status: 'BLOCKED' }, // Waiting for vendor response
+                { delay: 11000, taskId: 'T1_1_L2_SAFEGRAPH', progress: 100, status: 'COMPLETED' }, // Trial Granted
+                { delay: 12000, taskId: 'T1_1_FUSION_ENGINE', progress: 10, status: 'IN_PROGRESS' },
+            ];
+
+            simulationSteps.forEach(step => {
+                setTimeout(() => {
+                    handleTaskUpdate(step.taskId, step.progress, step.status);
+                }, step.delay);
+            });
+        }
+
+
+        // =================================================================
+        // 5. 초기화 (Initialization)
+        // =================================================================
+        document.addEventListener('DOMContentLoaded', () => {
+            setInterval(updateClock, 1000);
+            updateClock();
+            renderDashboard();
+            connectToStream();
+        });
     </script>
 </body>
 </html>
